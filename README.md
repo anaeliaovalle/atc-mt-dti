@@ -1,3 +1,9 @@
+# Augmenting MT-DTI model with ATC drug classification for Drug-Drug Chemical Subgroup Similarity
+https://www.who.int/medicines/regulation/medicines-safety/toolkit_atc/en/
+
+
+### Forked Repo Documentation
+-----------
 # MT-DTI
 An official Molecule Transformer Drug Target Interaction (MT-DTI) model
 
