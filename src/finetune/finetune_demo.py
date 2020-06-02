@@ -314,6 +314,8 @@ def main(argv):
         train_batch_size=batch_size,
         eval_batch_size=dev_batch_size)
 
+    import pdb
+    pdb.set_trace()
     input_fn_trn = model.input_fn_builder([i_trn], is_training=True)
     input_fn_dev = model.input_fn_builder([i_dev], is_training=False)
     input_fn_tst = model.input_fn_builder([i_tst], is_training=False)

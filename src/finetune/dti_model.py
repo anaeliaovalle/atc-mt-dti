@@ -1,7 +1,8 @@
 import tensorflow as tf
 import six
-from src.bert.modeling import DTIBertModel, BertConfig, get_assignment_map_from_checkpoint
+from src.bert.modeling import DTIBertModel, BertConfig, get_assignment_map_from_checkpoint, ATCEmbedding
 from src.bert.optimization import create_optimizer, create_optimizer_v10
+import pdb
 
 __author__ = 'Bonggun Shin'
 
@@ -35,6 +36,7 @@ def embedding_lookup(input_ids,
 
     input_shape = get_shape_list(input_ids)
 
+    pdb.set_trace()
     output = tf.reshape(output,
                         input_shape[0:-1] + [input_shape[-1] * embedding_size])
     return (output, embedding_table)
@@ -438,7 +440,9 @@ class DeepDTAModel(object):
 class MbertPcnnModel(object):
     def __init__(self, batch_size, dev_batch_size, max_molecule_length, max_protein_length,
                  bert_config_file, init_checkpoint, learning_rate, num_train_steps, num_warmup_steps,
-                 use_tpu, kernel_size1, kernel_size2, kernel_size3):
+                 use_tpu, kernel_size1, kernel_size2, kernel_size3, 
+                 embed_file_pth='data/ATC_embedding.pkl', 
+                 embed_vocab_pth='data/drug_name.txt'):
         self.batch_size = batch_size
         self.dev_batch_size = dev_batch_size
         self.bert_config_file = bert_config_file
@@ -452,6 +456,9 @@ class MbertPcnnModel(object):
         self.kernel_size1 = kernel_size1
         self.kernel_size2 = kernel_size2
         self.kernel_size3 = kernel_size3
+
+        self.embed_file_pth = embed_file_pth
+        self.embed_vocab_pth = embed_vocab_pth
 
     def input_fn_builder(self, input_files,
                          is_training,
@@ -693,7 +700,27 @@ class MbertPcnnModel(object):
         config_protein = DeepConvolutionModelConfig("protein", 30, 128, kernel_size1=self.kernel_size1, kernel_size2=self.kernel_size2, kernel_size3=self.kernel_size3)
         cnn_protein = DeepConvolutionModel(config_protein, training, xt)
 
-        concat_z = tf.concat([molecule_representation, cnn_protein.conv_z], 1)
+        atc_embedding = ATCEmbedding(
+            vocab_file_pth=self.embed_vocab_pth,
+            embed_file_pth=self.embed_file_pth,
+            input_ids=xd # 512 x max_molecule_len
+        ).embedding
+
+        """
+        TF records
+        fixedLenSequence: every record has to be len N
+
+        N = max_molecule_len = 5
+
+        x1 = [1,2,8,5,3]
+        x2 = [9,0,0,0,0]
+        x3 = [9,3,4,0,0]
+
+
+        """
+
+        pdb.set_trace()
+        concat_z = tf.concat([molecule_representation, cnn_protein.conv_z, atc_embedding], 1) #atc_embedding
         z = tf.layers.dense(concat_z, 1024, activation='relu')
         z = tf.layers.dropout(z, rate=0.1)
         z = tf.layers.dense(z, 1024, activation='relu')

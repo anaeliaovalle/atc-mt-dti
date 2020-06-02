@@ -1,8 +1,11 @@
 import tensorflow as tf
+import pdb
+# pdb.set_trace()
 from src.finetune.dti_model import MbertPcnnModel
 import argparse
 import _pickle as cPickle
 import os
+import pdb
 
 __author__ = 'Bonggun Shin'
 
@@ -87,86 +90,92 @@ else:
 def main(argv):
     del argv
 
-    # TODO: refactoring is required: seq_to_id.cpkl should be in one of the preprocessings
-    lookup_file_name = "%s/%s/seq_to_id.cpkl" % (args.base_path, args.dataset_name)
-    with open(lookup_file_name, 'rb') as handle:
-        (mseq_to_id, pseq_to_id) = cPickle.load(handle)
 
-    # os.environ['CUDA_VISIBLE_DEVICES'] = ''
-    # init model class
-    model = MbertPcnnModel(batch_size, dev_batch_size, 100, 1000,
-                           args.bert_config_file, args.init_checkpoint,
-                           args.learning_rate, num_train_steps, num_warmup_steps, args.use_tpu,
-                           args.k1, args.k2, args.k3)
+    try: 
+        # TODO: refactoring is required: seq_to_id.cpkl should be in one of the preprocessings
+        lookup_file_name = "%s/%s/seq_to_id.cpkl" % (args.base_path, args.dataset_name)
+        with open(lookup_file_name, 'rb') as handle:
+            (mseq_to_id, pseq_to_id) = cPickle.load(handle)
 
-    tpu_cluster_resolver = None
-    if args.use_tpu and args.tpu_name:
-        tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(
-            args.tpu_name, zone=args.tpu_zone, project=None)
+        # os.environ['CUDA_VISIBLE_DEVICES'] = ''
+        # init model class
+        model = MbertPcnnModel(batch_size, dev_batch_size, 100, 1000,
+                            args.bert_config_file, args.init_checkpoint,
+                            args.learning_rate, num_train_steps, num_warmup_steps, args.use_tpu,
+                            args.k1, args.k2, args.k3)
 
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    config.gpu_options.per_process_gpu_memory_fraction = 0.9
+        tpu_cluster_resolver = None
+        if args.use_tpu and args.tpu_name:
+            tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(
+                args.tpu_name, zone=args.tpu_zone, project=None)
 
-    is_per_host = tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2
-    run_config = tf.contrib.tpu.RunConfig(
-        session_config=config,
-        cluster=tpu_cluster_resolver,
-        master=None,
-        model_dir=output_dir,
-        save_checkpoints_steps=save_checkpoints_steps,
-        tpu_config=tf.contrib.tpu.TPUConfig(
-            iterations_per_loop=save_checkpoints_steps,
-            num_shards=args.num_tpu_cores,
-            per_host_input_for_training=is_per_host))
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        config.gpu_options.per_process_gpu_memory_fraction = 0.9
 
-    model_fn = eval("model.model_fn_v%s" % args.model_version)
-    # create classifier
-    estimator = tf.contrib.tpu.TPUEstimator(
-        use_tpu=False,
-        model_fn=model_fn,
-        config=run_config,
-        train_batch_size=batch_size,
-        eval_batch_size=dev_batch_size)
+        is_per_host = tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2
+        run_config = tf.contrib.tpu.RunConfig(
+            session_config=config,
+            cluster=tpu_cluster_resolver,
+            master=None,
+            model_dir=output_dir,
+            save_checkpoints_steps=save_checkpoints_steps,
+            tpu_config=tf.contrib.tpu.TPUConfig(
+                iterations_per_loop=save_checkpoints_steps,
+                num_shards=args.num_tpu_cores,
+                per_host_input_for_training=is_per_host))
 
-    input_fn_tst = model.input_fn_builder([i_tst], is_training=False)
+        model_fn = eval("model.model_fn_v%s" % args.model_version)
+        # create classifier
+        estimator = tf.contrib.tpu.TPUEstimator(
+            use_tpu=False,
+            model_fn=model_fn,
+            config=run_config,
+            train_batch_size=batch_size,
+            eval_batch_size=dev_batch_size)
 
-    summary = {}
+        input_fn_tst = model.input_fn_builder([i_tst], is_training=False)
 
-    # 19708/4 = 4927
-    print("====================================== tst ==============================")
-    results = estimator.predict(input_fn=input_fn_tst)
-    filename = "%s/%s/mtdti.v%s.predictions.fold%d.txt" % (args.base_path, args.dataset_name, args.model_version, args.fold)
-    print(filename)
-    with open(filename, 'wt') as handle:
-        # handle.write("chemid,pid,y_hat,y,smiles,fasta\n")
-        handle.write("chemid,pid,y_hat,y\n")
-        for idx, result in enumerate(results):
-            xd_str = ','.join(map(str, result['xd']))
-            xt_str = ','.join(map(str, result['xt']))
+        summary = {}
 
-            if xd_str in mseq_to_id:
-                smiles = mseq_to_id[xd_str][0]
-                chemid = mseq_to_id[xd_str][1]
-            else:
-                chemid = 0
+        # 19708/4 = 4927
+        print("====================================== tst ==============================")
+        results = estimator.predict(input_fn=input_fn_tst)
+        filename = "%s/%s/mtdti.v%s.predictions.fold%d.txt" % (args.base_path, args.dataset_name, args.model_version, args.fold)
+        print(filename)
+        with open(filename, 'wt') as handle:
+            # handle.write("chemid,pid,y_hat,y,smiles,fasta\n")
+            handle.write("chemid,pid,y_hat,y\n")
+            for idx, result in enumerate(results):
+                pdb.set_trace()
+                xd_str = ','.join(map(str, result['xd']))
+                xt_str = ','.join(map(str, result['xt']))
 
-            if xt_str in pseq_to_id:
-                fasta = pseq_to_id[xt_str][0]
-                pid = pseq_to_id[xt_str][1]
-            else:
-                pid = 0
+                if xd_str in mseq_to_id:
+                    smiles = mseq_to_id[xd_str][0]
+                    chemid = mseq_to_id[xd_str][1]
+                else:
+                    chemid = 0
 
-            y_hat = result['predictions'][0]
-            y = result['gold'][0]
+                if xt_str in pseq_to_id:
+                    fasta = pseq_to_id[xt_str][0]
+                    pid = pseq_to_id[xt_str][1]
+                else:
+                    pid = 0
 
-            # oneline = "%s,%s,%f,%f,%s,%s\n" % (chemid, pid, y_hat, y, smiles, fasta)
-            oneline = "%s,%s,%f,%f\n" % (chemid, pid, y_hat, y)
-            handle.write(oneline)
-            # print(oneline)
-            if idx % 1000 == 0:
-                print(idx)
+                y_hat = result['predictions'][0]
+                y = result['gold'][0]
 
+                # oneline = "%s,%s,%f,%f,%s,%s\n" % (chemid, pid, y_hat, y, smiles, fasta)
+                oneline = "%s,%s,%f,%f\n" % (chemid, pid, y_hat, y)
+                handle.write(oneline)
+                # print(oneline)
+                if idx % 1000 == 0:
+                    # pdb.set_trace()
+                    print(idx)
+    except Exception as e: 
+        print(e)
+        pdb.set_trace()
     # print(idx)
 
 
