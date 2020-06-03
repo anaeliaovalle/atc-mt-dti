@@ -720,7 +720,7 @@ class MbertPcnnModel(object):
                 chem2idx[line[0]] = line[1]
 
         # convert chembl to index of ATC embedding
-        idx = [chem2idx[c] for c in chembl]
+        idx = [int(chem2idx[c]) for c in chembl]
 
         atc_embedding = ATCEmbedding(
             vocab_file_pth=self.embed_vocab_pth,
