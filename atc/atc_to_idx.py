@@ -40,7 +40,7 @@ def main():
         # adjust existing embedding to only consider the overlapping drugs
         atc_overlap_embedding = atc_embedding[atc_idx_overlap]
         
-        # write out smiles vocabulary with key being cd
+        # write out smiles vocabulary with key being key=sum(indices) + number of nonzeroes
         with open('./data/atc_overlap_vocab.txt', 'w') as handler: 
             for chembl, val in atc_chembl_to_smiles.items():
                 smiles = [int(x) for x in val[0] if x != ',']
