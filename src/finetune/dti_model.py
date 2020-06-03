@@ -710,12 +710,22 @@ class MbertPcnnModel(object):
         with open(lookup_file_name, 'rb') as handle:
             (mseq_to_id, pseq_to_id) = cPickle.load(handle)
 
+        # convert input_id to chembl
         chembl = [mseq_to_id[q][1] for q in query]
+
+        chem2idx = {}
+        with open('../atc/data/CHEMBL2index.csv') as f:
+            for line in f:
+                line = line.strip().split('\t')
+                chem2idx[line[0]] = line[1]
+
+        # convert chembl to index of ATC embedding
+        idx = [chem2idx[c] for c in chembl]
 
         atc_embedding = ATCEmbedding(
             vocab_file_pth=self.embed_vocab_pth,
             embed_file_pth=self.embed_file_pth,
-            input_ids=chembl, # 512 x max_molecule_len
+            input_ids=idx, # 512 x max_molecule_len
         ).embedding
 
         """
