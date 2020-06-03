@@ -422,11 +422,12 @@ class ATCEmbedding(object):
     ...
     ```
     """
+    EMBED_DIM = 128
 
     def __init__(self,
                  input_ids,
-                 vocab_file_pth,
-                 embed_file_pth):
+                 vocab_pth,
+                 embed_pth):
         """Constructor for Embedding"""
 
         # check inputs
@@ -435,46 +436,41 @@ class ATCEmbedding(object):
         seq_length = input_shape[1]
         
         # load pretrained weights #ATC drugs x 128
-        EMBED_DIM = 128
-        pretrained_atc = np.load(embed_file_pth, allow_pickle=True)
-        atc_vocab = np.load(vocab_file_pth, allow_pickle=True)  # TODO: this should be cleaned 
+        # atc_vocab = []
+        pretrained_atc = np.load(embed_pth, allow_pickle=True)
+        with open(vocab_pth, 'r') as handler: 
+          atc_vocab = handler.read()
+          atc_vocab = atc_vocab.split('\n')[:-1]
         
-        # ordered lists of vocab and corresponding (by index) 128d vector
-        drug_train_vocab = get_train_vocab() # TODO get the vocab
-        only_in_train = list(set(drug_train_vocab) - set(atc_vocab))
-        vocab = drug_train_vocab + only_in_train    
+        #convert inputs into keys using (hopefully) unique key definition: drug key=sum(indices) + number of nonzeroes
+        sum_idx = tf.reduce_sum(input_ids, 1)
+        sum_idx = tf.cast(sum_idx, tf.int64)
+        n_nonzero = tf.math.count_nonzero(input_ids, 1, keepdims=False)
+        tensor_keys = tf.math.add(n_nonzero, sum_idx)
+        tensor_keys = tf.cast(tensor_keys, tf.string)
 
-        # TODO: Set up tensorflow look up from string word to unique integer
-        vocab_lookup = tf.contrib.lookup.index_table_from_tensor(
-          mapping=tf.constant(drug_train_vocab),
-          default_value=len(drug_train_vocab))
-        string_tensor = vocab_lookup.lookup(string_tensor)
-
+        # embedding
         with tf.variable_scope("embeddings"):
-            # Perform embedding lookup on the  ids.
-            # (self.embedding_output, self.embedding_table) = embedding_lookup(
-            #     input_ids=input_ids,
-            #     vocab_size=config.vocab_size,
-            #     embedding_size=embed_dim,
-            #     initializer_range=config.initializer_range,
-            #     word_embedding_name="word_embeddings",
-            #     use_one_hot_embeddings=use_one_hot_embeddings)
-              # define the word embedding
-            # define the word embedding
             pretrained_embs = tf.get_variable(
                 name="atc_embedding_match",
-                initializer=tf.constant_initializer(np.asarray(pretrained_atc), dtype=tf.float32),
-                shape=EMBED_DIM,
-                trainable=False)
+                initializer=tf.constant_initializer(pretrained_atc, dtype=tf.float32),
+                shape=[len(atc_vocab), self.EMBED_DIM],
+                trainable=False)               
             unk_embs = tf.get_variable(
                 name="atc_embedding_train_no_match",
-                shape=[1, EMBED_DIM],
+                shape=[1,self.EMBED_DIM],
                 initializer=tf.random_uniform_initializer(-0.04, 0.04),
                 trainable=False) # drugs without a match or test set w/o match
 
-        # TODO: concatenate the above cases
-        embedding = tf.concat([pretrained_embs, unk_embs], 1)
-        self.embedding = tf.embedding_lookup(embedding, vocab_lookup)
+        embedding = tf.concat([pretrained_embs, unk_embs], axis=0)
+        
+        # look up table
+        vocab_lookup = tf.contrib.lookup.index_table_from_tensor(
+          mapping=tf.constant(atc_vocab),
+          default_value=len(atc_vocab))
+        string_tensor = vocab_lookup.lookup(tensor_keys)                
+
+        self.embedding = tf.nn.embedding_lookup(embedding, string_tensor)
 
         """
         For 1 datapoint: 

@@ -36,7 +36,6 @@ def embedding_lookup(input_ids,
 
     input_shape = get_shape_list(input_ids)
 
-    pdb.set_trace()
     output = tf.reshape(output,
                         input_shape[0:-1] + [input_shape[-1] * embedding_size])
     return (output, embedding_table)
@@ -440,9 +439,7 @@ class DeepDTAModel(object):
 class MbertPcnnModel(object):
     def __init__(self, batch_size, dev_batch_size, max_molecule_length, max_protein_length,
                  bert_config_file, init_checkpoint, learning_rate, num_train_steps, num_warmup_steps,
-                 use_tpu, kernel_size1, kernel_size2, kernel_size3, args,
-                 embed_file_pth='data/ATC_embedding.pkl', 
-                 embed_vocab_pth='data/drug_name.txt'):
+                 use_tpu, kernel_size1, kernel_size2, kernel_size3, args):
         self.batch_size = batch_size
         self.dev_batch_size = dev_batch_size
         self.bert_config_file = bert_config_file
@@ -456,9 +453,6 @@ class MbertPcnnModel(object):
         self.kernel_size1 = kernel_size1
         self.kernel_size2 = kernel_size2
         self.kernel_size3 = kernel_size3
-
-        self.embed_file_pth = embed_file_pth
-        self.embed_vocab_pth = embed_vocab_pth
         self.base_path = args.base_path
         self.dataset_name = args.dataset_name
 
@@ -703,45 +697,33 @@ class MbertPcnnModel(object):
         config_protein = DeepConvolutionModelConfig("protein", 30, 128, kernel_size1=self.kernel_size1, kernel_size2=self.kernel_size2, kernel_size3=self.kernel_size3)
         cnn_protein = DeepConvolutionModel(config_protein, training, xt)
 
-        # get the input_id
-        query = [','.join([str(i) for i in single_xt]) for single_xt in xt]
+        # # get the input_id
+        # query = [','.join([str(i) for i in single_xd]) for single_xd in xd]
 
-        lookup_file_name = "%s/%s/seq_to_id.cpkl" % (self.base_path, self.dataset_name)
-        with open(lookup_file_name, 'rb') as handle:
-            (mseq_to_id, pseq_to_id) = cPickle.load(handle)
+        # lookup_file_name = "%s/%s/seq_to_id.cpkl" % (self.base_path, self.dataset_name)
+        # with open(lookup_file_name, 'rb') as handle:
+        #     (mseq_to_id, pseq_to_id) = cPickle.load(handle)
 
-        # convert input_id to chembl
-        chembl = [mseq_to_id[q][1] for q in query]
+        # # convert input_id to chembl
+        # chembl = [mseq_to_id[q][1] for q in query]
 
-        chem2idx = {}
-        with open('../atc/data/CHEMBL2index.csv') as f:
-            for line in f:
-                line = line.strip().split('\t')
-                chem2idx[line[0]] = line[1]
+        # chem2idx = {}
+        # with open('../atc/data/CHEMBL2index.csv') as f:
+        #     for line in f:
+        #         line = line.strip().split('\t')
+        #         chem2idx[line[0]] = line[1]
 
-        # convert chembl to index of ATC embedding
-        idx = [int(chem2idx.get(c, -1)) for c in chembl]
+        # # convert chembl to index of ATC embedding
+        # idx = [int(chem2idx.get(c, -1)) for c in chembl]
 
         atc_embedding = ATCEmbedding(
-            vocab_file_pth=self.embed_vocab_pth,
-            embed_file_pth=self.embed_file_pth,
-            input_ids=idx, # 512 x max_molecule_len
-        ).embedding
+            embed_pth='../../atc/data/atc_overlap_embedding.npy',
+            vocab_pth='../../atc/data/atc_overlap_vocab.txt',            
+            input_ids=xd).embedding
+        
+        # import pdb
+        # pdb.set_trace()
 
-        """
-        TF records
-        fixedLenSequence: every record has to be len N
-
-        N = max_molecule_len = 5
-
-        x1 = [1,2,8,5,3]
-        x2 = [9,0,0,0,0]
-        x3 = [9,3,4,0,0]
-
-
-        """
-
-        pdb.set_trace()
         concat_z = tf.concat([molecule_representation, cnn_protein.conv_z, atc_embedding], 1) #atc_embedding
         z = tf.layers.dense(concat_z, 1024, activation='relu')
         z = tf.layers.dropout(z, rate=0.1)
