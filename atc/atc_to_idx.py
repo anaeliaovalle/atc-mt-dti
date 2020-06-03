@@ -7,7 +7,6 @@ import _pickle as cPickle
 
 def main():
     try: 
-
         # map chembl to smiles
         seq_to_chembl_file_name = "../data/kiba/seq_to_id.cpkl"
         chembl_to_smiles = {}
@@ -53,12 +52,6 @@ def main():
         # write out new embedding
         np.save('./data/atc_overlap_embedding',atc_overlap_embedding)
 
-        
-
-        # convert input_id to chembl
-        # atc_chembl_smiles = [chembl_to_smiles.get(atc_chembl, 0)[q][1] for q in query]
-
-        
 
     except Exception as e: 
         print(e)
