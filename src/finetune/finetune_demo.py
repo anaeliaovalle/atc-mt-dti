@@ -280,7 +280,7 @@ def main(argv):
     model = MbertPcnnModel(batch_size, dev_batch_size, 100, 1000,
                            args.bert_config_file, args.data_path+args.init_checkpoint,
                            args.learning_rate, num_train_steps, num_warmup_steps, args.use_tpu,
-                           args.k1, args.k2, args.k3)
+                           args.k1, args.k2, args.k3, args)
 
     tpu_cluster_resolver = None
     if args.use_tpu and args.tpu_name:

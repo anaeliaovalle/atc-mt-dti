@@ -440,7 +440,7 @@ class DeepDTAModel(object):
 class MbertPcnnModel(object):
     def __init__(self, batch_size, dev_batch_size, max_molecule_length, max_protein_length,
                  bert_config_file, init_checkpoint, learning_rate, num_train_steps, num_warmup_steps,
-                 use_tpu, kernel_size1, kernel_size2, kernel_size3, 
+                 use_tpu, kernel_size1, kernel_size2, kernel_size3, args,
                  embed_file_pth='data/ATC_embedding.pkl', 
                  embed_vocab_pth='data/drug_name.txt'):
         self.batch_size = batch_size
@@ -459,6 +459,9 @@ class MbertPcnnModel(object):
 
         self.embed_file_pth = embed_file_pth
         self.embed_vocab_pth = embed_vocab_pth
+        self.base_path = args.base_path
+        self.dataset_name = args.dataset_name
+
 
     def input_fn_builder(self, input_files,
                          is_training,
@@ -700,10 +703,19 @@ class MbertPcnnModel(object):
         config_protein = DeepConvolutionModelConfig("protein", 30, 128, kernel_size1=self.kernel_size1, kernel_size2=self.kernel_size2, kernel_size3=self.kernel_size3)
         cnn_protein = DeepConvolutionModel(config_protein, training, xt)
 
+        # get the input_id
+        query = [','.join([str(i) for i in single_xt]) for single_xt in xt]
+
+        lookup_file_name = "%s/%s/seq_to_id.cpkl" % (self.base_path, self.dataset_name)
+        with open(lookup_file_name, 'rb') as handle:
+            (mseq_to_id, pseq_to_id) = cPickle.load(handle)
+
+        chembl = [mseq_to_id[q][1] for q in query]
+
         atc_embedding = ATCEmbedding(
             vocab_file_pth=self.embed_vocab_pth,
             embed_file_pth=self.embed_file_pth,
-            input_ids=xd # 512 x max_molecule_len
+            input_ids=chembl, # 512 x max_molecule_len
         ).embedding
 
         """
