@@ -443,6 +443,9 @@ class ATCEmbedding(object):
             name="atc_embedding_train_no_match")
         embedding = tf.concat([pretrained_embs, unk_embs], axis=0)
 
+        # import pdb
+        # pdb.set_trace()
+
         # construct unique look up key based on smiles
         embed_id_keys = self.map_seq_to_embed_key(input_ids)
 

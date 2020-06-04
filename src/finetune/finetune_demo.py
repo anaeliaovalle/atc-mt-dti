@@ -7,6 +7,7 @@ import os
 import time
 import shutil
 import glob
+import pdb
 import re
 
 __author__ = 'Bonggun Shin'
@@ -273,21 +274,6 @@ def check_improvement_ci(maxci_step, maxci_dev, maxci_mse_dev, maxci_mse_tst, ma
     return maxci_step, maxci_dev, maxci_mse_dev, maxci_mse_tst, maxci_ci_tst
 
 
-def optimistic_restore(session, save_file, graph=tf.get_default_graph()):
-    reader = tf.train.NewCheckpointReader(save_file)
-    saved_shapes = reader.get_variable_to_shape_map()
-    var_names = sorted([(var.name, var.name.split(':')[0]) for var in tf.global_variables()
-            if var.name.split(':')[0] in saved_shapes])    
-    restore_vars = []    
-    for var_name, saved_var_name in var_names:            
-        curr_var = graph.get_tensor_by_name(var_name)
-        var_shape = curr_var.get_shape().as_list()
-        if var_shape == saved_shapes[saved_var_name]:
-            restore_vars.append(curr_var)
-    opt_saver = tf.train.Saver(restore_vars)
-    opt_saver.restore(session, save_file)
-
-
 
 def main(argv):
     del argv
@@ -296,13 +282,14 @@ def main(argv):
     current_step = 1
     num_train_steps = 500
     test_model_dir = None
+    restore_dir = '../../data/kiba/mbert_cnn_v11_lr0.0001_k12_k12_k12_fold0/model.ckpt-900' #output_dir
 
     try: 
         # init model class
         model = MbertPcnnModel(batch_size, dev_batch_size, 100, 1000,
                             args.bert_config_file,
                             args.learning_rate, num_train_steps, num_warmup_steps, args.use_tpu,
-                            args.k1, args.k2, args.k3, args, init_checkpoint=None) # init_checkpoint=args.data_path+args.init_checkpoint
+                            args.k1, args.k2, args.k3, args, init_checkpoint=restore_dir) # init_checkpoint=args.data_path+args.init_checkpoint
 
         tpu_cluster_resolver = None
         if args.use_tpu and args.tpu_name:
@@ -338,6 +325,15 @@ def main(argv):
         input_fn_trn = model.input_fn_builder([i_trn], is_training=True)
         input_fn_dev = model.input_fn_builder([i_dev], is_training=False)
         input_fn_tst = model.input_fn_builder([i_tst], is_training=False)
+
+
+        # load up variables from old graph
+        # restore_pth = os.path.join(output_dir, 'model')
+        
+        # import pdb
+        # pdb.set_trace()
+        # assert os.path.exists(restore_dir)
+        # optimistic_restore(restore_dir)   
 
         #TODO
         # current_step = load_global_step_from_checkpoint_dir(output_dir)

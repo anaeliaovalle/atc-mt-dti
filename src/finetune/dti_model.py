@@ -659,6 +659,33 @@ class MbertPcnnModel(object):
 
         return output_spec
 
+    def optimistic_restore(self):
+        sess = tf.Session()
+        graph = tf.get_default_graph()
+
+        save_file = self.init_checkpoint
+        reader = tf.train.NewCheckpointReader(save_file)
+        saved_shapes = reader.get_variable_to_shape_map()
+
+        # restore variables that have values in pretrained graph
+        var_names = sorted([(var.name, var.name.split(':')[0]) for var in tf.global_variables()
+                if var.name.split(':')[0] in saved_shapes])    
+        restore_vars = []    
+
+        # adjust current graph accordingly
+        for var_name, saved_var_name in var_names:      
+            if 'global_step' in var_name:
+                continue      
+            curr_var = graph.get_tensor_by_name(var_name)
+            var_shape = curr_var.get_shape().as_list()
+            if var_shape == saved_shapes[saved_var_name]:
+                restore_vars.append(curr_var)
+
+        opt_saver = tf.train.Saver(restore_vars)
+            
+        opt_saver.restore(sess, save_file)
+
+
 
     def model_fn_v11(self, features, labels, mode, params):
         """
@@ -674,7 +701,7 @@ class MbertPcnnModel(object):
         :return:
             Train op, predictions, or eval op depening on mode
         """
-        tf.logging.info('*********************************** MbertPcnnModel V11 ***********************************')
+        tf.logging.info('*********************************** ATC-MT-DTI V1 ***********************************')
         xd = features['xd']
         xd_mask = features['xdm']
         xt = features['xt']
@@ -716,23 +743,18 @@ class MbertPcnnModel(object):
         # # convert chembl to index of ATC embedding
         # idx = [int(chem2idx.get(c, -1)) for c in chembl]
 
-        atc_embedding = ATCEmbedding(
-            embed_pth='../../atc/data/atc_overlap_embedding.npy',
-            vocab_pth='../../atc/data/atc_overlap_vocab.txt',            
-            input_ids=xd).embedding
+        # atc_embedding = ATCEmbedding(
+        #     embed_pth='../../atc/data/atc_overlap_embedding.npy',
+        #     vocab_pth='../../atc/data/atc_overlap_vocab.txt',            
+        #     input_ids=xd).embedding
         
-        # import pdb
-        # pdb.set_trace()
 
-        concat_z = tf.concat([molecule_representation, cnn_protein.conv_z, atc_embedding], 1) #atc_embedding
+        concat_z = tf.concat([molecule_representation, cnn_protein.conv_z], 1) #atc_embedding
         z = tf.layers.dense(concat_z, 1024, activation='relu')
         z = tf.layers.dropout(z, rate=0.1)
         z = tf.layers.dense(z, 1024, activation='relu')
         z = tf.layers.dropout(z, rate=0.1)
         z = tf.layers.dense(z, 512, activation='relu')
-
-        # import pdb
-        # pdb.set_trace()
 
         predictions = tf.layers.dense(z, 1, kernel_initializer='normal')
 
@@ -742,23 +764,24 @@ class MbertPcnnModel(object):
 
             # self.y = y
             # self.predictions = predictions
+            self.optimistic_restore()            
 
-            tvars = tf.trainable_variables()
+            # tvars = tf.trainable_variables()
 
-            initialized_variable_names = {}
+            # initialized_variable_names = {}
 
-            if self.init_checkpoint:
-                (assignment_map, initialized_variable_names
-                 ) = get_assignment_map_from_checkpoint(tvars, self.init_checkpoint)
-                if self.use_tpu:
+            # if self.init_checkpoint:
+            #     (assignment_map, initialized_variable_names
+            #      ) = get_assignment_map_from_checkpoint(tvars, self.init_checkpoint)
+            #     if self.use_tpu:
 
-                    def tpu_scaffold():
-                        tf.train.init_from_checkpoint(self.init_checkpoint, assignment_map)
-                        return tf.train.Scaffold()
+            #         def tpu_scaffold():
+            #             tf.train.init_from_checkpoint(self.init_checkpoint, assignment_map)
+            #             return tf.train.Scaffold()
 
-                    scaffold_fn = tpu_scaffold
-                else:
-                    tf.train.init_from_checkpoint(self.init_checkpoint, assignment_map)
+            #         scaffold_fn = tpu_scaffold
+            #     else:
+            #         tf.train.init_from_checkpoint(self.init_checkpoint, assignment_map)
 
             # tf.logging.info("**** Trainable Variables ****")
             # for var in tvars:
