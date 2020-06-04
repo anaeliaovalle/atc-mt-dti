@@ -438,8 +438,8 @@ class DeepDTAModel(object):
 
 class MbertPcnnModel(object):
     def __init__(self, batch_size, dev_batch_size, max_molecule_length, max_protein_length,
-                 bert_config_file, init_checkpoint, learning_rate, num_train_steps, num_warmup_steps,
-                 use_tpu, kernel_size1, kernel_size2, kernel_size3, args):
+                 bert_config_file, learning_rate, num_train_steps, num_warmup_steps,
+                 use_tpu, kernel_size1, kernel_size2, kernel_size3, args, init_checkpoint):
         self.batch_size = batch_size
         self.dev_batch_size = dev_batch_size
         self.bert_config_file = bert_config_file
@@ -730,6 +730,9 @@ class MbertPcnnModel(object):
         z = tf.layers.dense(z, 1024, activation='relu')
         z = tf.layers.dropout(z, rate=0.1)
         z = tf.layers.dense(z, 512, activation='relu')
+
+        # import pdb
+        # pdb.set_trace()
 
         predictions = tf.layers.dense(z, 1, kernel_initializer='normal')
 

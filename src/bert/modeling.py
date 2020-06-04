@@ -18,6 +18,7 @@ import collections
 import copy
 import json
 import math
+import csv
 import re
 import numpy as np
 import six
@@ -430,65 +431,56 @@ class ATCEmbedding(object):
                  embed_pth):
         """Constructor for Embedding"""
 
-        # check inputs
-        input_shape = get_shape_list(input_ids, expected_rank=2)
-        batch_size = input_shape[0]
-        seq_length = input_shape[1]
+        # load numpy embedding
+        pretrained_atc = np.load(embed_pth, allow_pickle=True)        
         
-        # load pretrained weights #ATC drugs x 128
-        # atc_vocab = []
-        pretrained_atc = np.load(embed_pth, allow_pickle=True)
-        with open(vocab_pth, 'r') as handler: 
-          atc_vocab = handler.read()
-          atc_vocab = atc_vocab.split('\n')[:-1]
-        
-        #convert inputs into keys using (hopefully) unique key definition: drug key=sum(indices) + number of nonzeroes
-        sum_idx = tf.reduce_sum(input_ids, 1)
-        sum_idx = tf.cast(sum_idx, tf.int64)
-        n_nonzero = tf.math.count_nonzero(input_ids, 1, keepdims=False)
-        tensor_keys = tf.math.add(n_nonzero, sum_idx)
-        tensor_keys = tf.cast(tensor_keys, tf.string)
-
-        # embedding
-        with tf.variable_scope("embeddings"):
-            pretrained_embs = tf.get_variable(
-                name="atc_embedding_match",
-                initializer=tf.constant_initializer(pretrained_atc, dtype=tf.float32),
-                shape=[len(atc_vocab), self.EMBED_DIM],
-                trainable=False)               
-            unk_embs = tf.get_variable(
-                name="atc_embedding_train_no_match",
-                shape=[1,self.EMBED_DIM],
-                initializer=tf.random_uniform_initializer(-0.04, 0.04),
-                trainable=False) # drugs without a match or test set w/o match
-
+        # create tf embedding
+        pretrained_embs = tf.Variable(
+            pretrained_atc,
+            name="atc_embedding_match")             
+        unk_embs = tf.Variable(
+            tf.random.uniform(shape=[1, self.EMBED_DIM]),
+            name="atc_embedding_train_no_match")
         embedding = tf.concat([pretrained_embs, unk_embs], axis=0)
-        
-        # look up table
-        vocab_lookup = tf.contrib.lookup.index_table_from_tensor(
-          mapping=tf.constant(atc_vocab),
-          default_value=len(atc_vocab))
-        string_tensor = vocab_lookup.lookup(tensor_keys)                
 
-        self.embedding = tf.nn.embedding_lookup(embedding, string_tensor)
+        # construct unique look up key based on smiles
+        embed_id_keys = self.map_seq_to_embed_key(input_ids)
 
-        """
-        For 1 datapoint: 
-        
-        their mapping dict(zip(xt, embedding dims)) <- ordered dict
-        "1,2,5,42,121,21": [z,w,t],
-        "7,4,3,2": [z,w,t],
-        "5,2,5,42,121,21": [q,w,t],
+        # map input to an embedding idx using (unique_key, embed_idx)
+        table_embed_ids = self.init_hashtable(vocab_pth)
+        embed_idxs = table_embed_ids.lookup(embed_id_keys)
 
+        # construct embedding lookup table of (embed_idx, embedding)
+        self.embedding = tf.nn.embedding_lookup(embedding, embed_idxs)
 
-        our mapping (subset of their dictionary)
-        batchsize=512 x 128 
-        "1,2,5,42,121,21": [our embedding]
-        ...
+    def init_hashtable(self, vocab_pth): 
+      """map sequence key to id of the embedding"""
+      keys = []
+      values = []
+      with open(vocab_pth, newline='\n') as csvfile:
+          reader = csv.DictReader(csvfile)
+          for row in reader:
+              keys.append(int(row['EMBED_ID']))
+              values.append(int(row['ROW_IDX']))
+      
+      tf_keys = tf.constant(keys, dtype=tf.int64)
+      tf_values = tf.constant(values, dtype=tf.int64)
+      default_val = len(keys)
 
-        
+      table = tf.contrib.lookup.HashTable(
+          tf.contrib.lookup.KeyValueTensorInitializer(tf_keys, tf_values), default_val)
+      return table
 
-        """
+    def map_seq_to_embed_key(self, input_ids): 
+      """convert inputs into keys using (hopefully) unique key definition: 
+      drug key=sum(indices) + number of nonzeroes
+      """
+      sum_idx = tf.reduce_sum(input_ids, 1)
+      sum_idx = tf.cast(sum_idx, tf.int64)
+      n_nonzero = tf.math.count_nonzero(input_ids, 1, keepdims=False)
+      keys = tf.math.add(n_nonzero, sum_idx)
+      return keys    
+
 
 
 
