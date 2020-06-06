@@ -5,7 +5,6 @@ import numpy as np
 
 __author__ = 'Bonggun Shin'
 
-
 def prepare_interaction_pairs(XD, XDm, XT, XTm, Y, rows, cols):
     drugs = []
     drug_mask = []
@@ -37,22 +36,23 @@ def prepare_interaction_pairs(XD, XDm, XT, XTm, Y, rows, cols):
 
 def get_trn_dev_tst(dataset, fold=0):
     (XD, XDm, XT, XTm, Y, trn_sets, dev_sets, tst_set, row_idx, col_idx) = dataset
-    trn_set = trn_sets[fold]
-    dev_set = dev_sets[fold]
+    #trn_set = trn_sets[fold]
+    #dev_set = dev_sets[fold]
 
-    drug_idx_trn = row_idx[trn_set]
-    protein_idx_trn = col_idx[trn_set]
-    drug_idx_dev = row_idx[dev_set]
-    protein_idx_dev = col_idx[dev_set]
+    # drug_idx_trn = row_idx[trn_set]
+    # protein_idx_trn = col_idx[trn_set]
+    # drug_idx_dev = row_idx[dev_set]
+    # protein_idx_dev = col_idx[dev_set]
     drug_idx_tst = row_idx[tst_set]
     protein_idx_tst = col_idx[tst_set]
 
-    (xd_trn, xdm_trn, xt_trn, xtm_trn, y_trn) = prepare_interaction_pairs(XD, XDm, XT, XTm, Y, drug_idx_trn, protein_idx_trn)
-    (xd_dev, xdm_dev, xt_dev, xtm_dev, y_dev) = prepare_interaction_pairs(XD, XDm, XT, XTm, Y, drug_idx_dev, protein_idx_dev)
+    # (xd_trn, xdm_trn, xt_trn, xtm_trn, y_trn) = prepare_interaction_pairs(XD, XDm, XT, XTm, Y, drug_idx_trn, protein_idx_trn)
+    # (xd_dev, xdm_dev, xt_dev, xtm_dev, y_dev) = prepare_interaction_pairs(XD, XDm, XT, XTm, Y, drug_idx_dev, protein_idx_dev)
     (xd_tst, xdm_tst, xt_tst, xtm_tst, y_tst) = prepare_interaction_pairs(XD, XDm, XT, XTm, Y, drug_idx_tst, protein_idx_tst)
-    trndev = xd_trn, xdm_trn, xt_trn, xtm_trn, y_trn, \
-             xd_dev, xdm_dev, xt_dev, xtm_dev, y_dev, \
-             xd_tst, xdm_tst, xt_tst, xtm_tst, y_tst
+    # trndev = xd_trn, xdm_trn, xt_trn, xtm_trn, y_trn, \
+    #          xd_dev, xdm_dev, xt_dev, xtm_dev, y_dev, \
+    #          xd_tst, xdm_tst, xt_tst, xtm_tst, y_tst
+    trndev = xd_tst, xdm_tst, xt_tst, xtm_tst, y_tst
 
     return trndev
 

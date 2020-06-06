@@ -6,8 +6,11 @@ import numpy as np
 import tensorflow as tf
 import _pickle as cPickle
 import collections
-from ..utils.utils import DTITokenizer, get_trn_dev_tst
+from utils.utils import DTITokenizer, get_trn_dev_tst
 from collections import OrderedDict
+
+
+os.system('cd /Users/yuyan/Desktop/Papers/Course/advanced data mining/project/temp/atc-mt-dti/src')
 
 
 __author__ = 'Bonggun Shin'
@@ -22,7 +25,7 @@ flags.DEFINE_integer("max_protein_seq_length", 1000, "Maximum protein sequence l
 flags.DEFINE_integer("max_predictions_per_seq", 15,
                      "Maximum number of masked LM predictions per sequence.")
 flags.DEFINE_integer("random_seed", 12345, "Random seed for data generation.")
-flags.DEFINE_string("data_path", "../../data", "base path for dataset")
+flags.DEFINE_string("data_path", "../data", "base path for dataset")
 flags.DEFINE_string("dataset_name", "covid", "dataset name (kiba, davis)")
 # flags.DEFINE_string("dataset_name", "davis", "dataset name (kiba, davis)")
 flags.DEFINE_integer("version", 2, "version 1: training, version2: analysis")
@@ -49,12 +52,12 @@ def truncate_seq_pair(tokens, max_num_tokens, rng):
 
 def read_data(fold):
     rng = random.Random(FLAGS.random_seed)
-    molecule_tokenizer = DTITokenizer("../../config/vocab_smiles.txt" )
+    molecule_tokenizer = DTITokenizer("../config/vocab_smiles.txt" )
     max_seq_length = FLAGS.max_molecule_seq_length
     molecule_list, molecule_mask, cid_list = read_inputs(molecule_input_file, molecule_tokenizer, max_seq_length, rng)
     tf.logging.info("reading molecule done")
 
-    protein_tokenizer = DTITokenizer("../../config/vocab_fasta.txt" % (FLAGS.data_path))
+    protein_tokenizer = DTITokenizer("../config/vocab_fasta.txt" )
     max_seq_length = FLAGS.max_protein_seq_length
     protein_list, protein_mask, pid_list = read_inputs(protein_input_file, protein_tokenizer, max_seq_length, rng)
     tf.logging.info("reading protein done")
@@ -168,12 +171,13 @@ if __name__=="__main__":
     tf.logging.set_verbosity(tf.logging.INFO)
     tf.logging.info("*** CREATING TFRECORD ***")
 
-    for fold in range(0):
+    for fold in range(1):
         tf.logging.info("*** FOLD %d ***" % fold)
         trndevtst, cid_list, pid_list = read_data(fold)
-        xd_trn, xdm_trn, xt_trn, xtm_trn, y_trn, \
-        xd_dev, xdm_dev, xt_dev, xtm_dev, y_dev, \
+        # xd_trn, xdm_trn, xt_trn, xtm_trn, y_trn, \
+        # xd_dev, xdm_dev, xt_dev, xtm_dev, y_dev, \
         xd_tst, xdm_tst, xt_tst, xtm_tst, y_tst = trndevtst
+
 
         lookup_file_name =  "%s/%s/tst_ids.cpkl" % (FLAGS.data_path, FLAGS.dataset_name)
         if not os.path.isfile(lookup_file_name):
@@ -182,11 +186,11 @@ if __name__=="__main__":
 
         # exit()
 
-        output_files = ["%s/%s/tfrecord/fold%d.trn.tfrecord" % (FLAGS.data_path, FLAGS.dataset_name, fold)]
-        write_instance_to_example_files(xd_trn, xdm_trn, xt_trn, xtm_trn, y_trn, output_files)
+        # output_files = ["%s/%s/tfrecord/fold%d.trn.tfrecord" % (FLAGS.data_path, FLAGS.dataset_name, fold)]
+        # write_instance_to_example_files(xd_trn, xdm_trn, xt_trn, xtm_trn, y_trn, output_files)
 
-        output_files = ["%s/%s/tfrecord/fold%d.dev.tfrecord" % (FLAGS.data_path, FLAGS.dataset_name, fold)]
-        write_instance_to_example_files(xd_dev, xdm_dev, xt_dev, xtm_dev, y_dev, output_files)
+        # output_files = ["%s/%s/tfrecord/fold%d.dev.tfrecord" % (FLAGS.data_path, FLAGS.dataset_name, fold)]
+        # write_instance_to_example_files(xd_dev, xdm_dev, xt_dev, xtm_dev, y_dev, output_files)
 
         output_files = ["%s/%s/tfrecord/fold%d.tst.tfrecord" % (FLAGS.data_path, FLAGS.dataset_name, fold)]
         write_instance_to_example_files(xd_tst, xdm_tst, xt_tst, xtm_tst, y_tst, output_files)
