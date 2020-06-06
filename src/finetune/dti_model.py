@@ -743,13 +743,13 @@ class MbertPcnnModel(object):
         # # convert chembl to index of ATC embedding
         # idx = [int(chem2idx.get(c, -1)) for c in chembl]
 
-        # atc_embedding = ATCEmbedding(
-        #     embed_pth='../../atc/data/atc_overlap_embedding.npy',
-        #     vocab_pth='../../atc/data/atc_overlap_vocab.txt',            
-        #     input_ids=xd).embedding
+        atc_embedding = ATCEmbedding(
+            embed_pth='../../atc/data/atc_overlap_embedding.npy',
+            vocab_pth='../../atc/data/atc_overlap_vocab.txt',            
+            input_ids=xd).embedding
         
 
-        concat_z = tf.concat([molecule_representation, cnn_protein.conv_z], 1) #atc_embedding
+        concat_z = tf.concat([molecule_representation, cnn_protein.conv_z, atc_embedding], 1) #atc_embedding
         z = tf.layers.dense(concat_z, 1024, activation='relu')
         z = tf.layers.dropout(z, rate=0.1)
         z = tf.layers.dense(z, 1024, activation='relu')

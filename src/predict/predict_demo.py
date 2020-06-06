@@ -148,7 +148,7 @@ def main(argv):
             handle.write("chemid,pid,y_hat,y\n")
             for idx, result in enumerate(results):
                 pdb.set_trace()
-                xd_str = ','.join(map(str, result['xd']))
+                xd_str = ','.join(map(str, result['xd'])) #[1,2,3,4,4,4] --> 1,2,3,4,4,4 --> f('1,2,3,4,4,4'): (smiles, chembl192381)
                 xt_str = ','.join(map(str, result['xt']))
 
                 if xd_str in mseq_to_id:

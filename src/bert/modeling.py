@@ -431,22 +431,24 @@ class ATCEmbedding(object):
                  embed_pth):
         """Constructor for Embedding"""
 
-        # load numpy embedding
+        # load numpy embedding 5k drugs from ATC 
         pretrained_atc = np.load(embed_pth, allow_pickle=True)        
         
         # create tf embedding
         pretrained_embs = tf.Variable(
             pretrained_atc,
-            name="atc_embedding_match")             
+            name="atc_embedding_match", 
+            trainable=False)             
         unk_embs = tf.Variable(
             tf.random.uniform(shape=[1, self.EMBED_DIM]),
-            name="atc_embedding_train_no_match")
+            name="atc_embedding_train_no_match", 
+            trainable=False)
         embedding = tf.concat([pretrained_embs, unk_embs], axis=0)
 
         # import pdb
         # pdb.set_trace()
 
-        # construct unique look up key based on smiles
+        # construct unique look up key based on smiles #[1,2,3] --> $(6) -> index of ATC emebdding
         embed_id_keys = self.map_seq_to_embed_key(input_ids)
 
         # map input to an embedding idx using (unique_key, embed_idx)

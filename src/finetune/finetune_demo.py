@@ -280,7 +280,7 @@ def main(argv):
 
     #TODO atc-mt-dti testing
     current_step = 1
-    num_train_steps = 500
+    num_train_steps = 750
     test_model_dir = None
     restore_dir = '../../data/kiba/mbert_cnn_v11_lr0.0001_k12_k12_k12_fold0/model.ckpt-900' #output_dir
 
