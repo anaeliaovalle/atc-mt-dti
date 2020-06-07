@@ -18,6 +18,7 @@ import collections
 import copy
 import json
 import math
+import csv
 import re
 import numpy as np
 import six
@@ -408,6 +409,82 @@ class DTIBertModel(object):
 
     def get_embedding_table(self):
         return self.embedding_table
+
+class ATCEmbedding(object):
+    """ATC embedding
+
+    Example usage:
+
+    ```python
+    # Already been converted into WordPiece token ids
+    input_ids = tf.constant([[31, 51, 99], [15, 5, 0]])
+    input_mask = tf.constant([[1, 1, 1], [1, 1, 0]])
+    token_type_ids = tf.constant([[0, 0, 1], [0, 2, 0]])
+    ...
+    ```
+    """
+    EMBED_DIM = 128
+
+    def __init__(self,
+                 input_ids,
+                 vocab_pth,
+                 embed_pth):
+        """Constructor for Embedding"""
+
+        # load numpy embedding 5k drugs from ATC 
+        pretrained_atc = np.load(embed_pth, allow_pickle=True)        
+        
+        # create tf embedding
+        pretrained_embs = tf.Variable(
+            pretrained_atc,
+            name="atc_embedding_match", 
+            trainable=False)             
+        unk_embs = tf.Variable(
+            tf.random.uniform(shape=[1, self.EMBED_DIM]),
+            name="atc_embedding_train_no_match", 
+            trainable=False)
+        embedding = tf.concat([pretrained_embs, unk_embs], axis=0)
+
+        # import pdb
+        # pdb.set_trace()
+
+        # construct unique look up key based on smiles #[1,2,3] --> $(6) -> index of ATC emebdding
+        embed_id_keys = self.map_seq_to_embed_key(input_ids)
+
+        # map input to an embedding idx using (unique_key, embed_idx)
+        table_embed_ids = self.init_hashtable(vocab_pth)
+        embed_idxs = table_embed_ids.lookup(embed_id_keys)
+
+        # construct embedding lookup table of (embed_idx, embedding)
+        self.embedding = tf.nn.embedding_lookup(embedding, embed_idxs)
+
+    def init_hashtable(self, vocab_pth): 
+      """map sequence key to id of the embedding"""
+      keys = []
+      values = []
+      with open(vocab_pth, newline='\n') as csvfile:
+          reader = csv.DictReader(csvfile)
+          for row in reader:
+              keys.append(int(row['EMBED_ID']))
+              values.append(int(row['ROW_IDX']))
+      
+      tf_keys = tf.constant(keys, dtype=tf.int64)
+      tf_values = tf.constant(values, dtype=tf.int64)
+      default_val = len(keys)
+
+      table = tf.contrib.lookup.HashTable(
+          tf.contrib.lookup.KeyValueTensorInitializer(tf_keys, tf_values), default_val)
+      return table
+
+    def map_seq_to_embed_key(self, input_ids): 
+      """convert inputs into keys using (hopefully) unique key definition: 
+      drug key=sum(indices) + number of nonzeroes
+      """
+      sum_idx = tf.reduce_sum(input_ids, 1)
+      sum_idx = tf.cast(sum_idx, tf.int64)
+      n_nonzero = tf.math.count_nonzero(input_ids, 1, keepdims=False)
+      keys = tf.math.add(n_nonzero, sum_idx)
+      return keys    
 
 
 
