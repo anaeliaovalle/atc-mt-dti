@@ -274,6 +274,37 @@ def get_split(base_path, problem_type, max_seq_len, max_smi_len):
 	cPickle.dump((XD, XT, Y, trn_sets, dev_sets, tst_set, row_idx, col_idx, chembl_id_list, protein_id_list),
 				 open('%s/covid/covid_b.cpkl' % base_path, 'wb'))
 
+	# seq_to_id cpkl
+	#res_chembl = dict(zip(XD,chembl_id_list))
+	#res_fasta = dict(zip(XT,chembl_id_list))
+	#res = (res_chembl,res_fasta)
+	# the first file is a dictionary of a bunch of numbers mapping to a pair of (SMILES, CHEMBL_ID)	
+	# we have: smiles_list, chembl_id_list ... zip that
+	#print(XD.shape)
+	#print(len(smiles_list))
+	#print(len(chembl_id_list))
+	
+	#res_chembl = lambda a,b: [list(c) for c in zip(smiles_list,chembl_id_list)]
+	chembl_dict = {}
+	for i in range(len(XD)):
+		xd_strings = []
+		for xd in XD[i]:
+			xd_strings += [str(int(xd))]
+		xd_string = ",".join(xd_strings)
+		chembl_dict[xd_string] = (smiles_list[i],chembl_id_list[i])
+
+	# the second file is a dictionary of a bunch of numbers (probably XT) mapping to a pair of (AAsequence, accession)
+	#res_fasta = lambda a,b: [list(c) for c in zip(fasta_list, protein_id_list)]
+	fasta_dict = {}
+	for i in range(len(XT)):
+		xt_strings = []
+		for xt in XT[i]:
+			xt_strings += [str(int(xt))]
+		xt_string = ",".join(xt_strings)
+		fasta_dict[xt_string] = (fasta_list[i],protein_id_list[i])
+
+	res = (chembl_dict,fasta_dict)
+	cPickle.dump(res, open('%s/covid/seq_to_id.cpkl' % base_path, 'wb'))
 
 if __name__=="__main__":
 	parser = argparse.ArgumentParser()
