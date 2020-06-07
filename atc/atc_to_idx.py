@@ -10,14 +10,28 @@ def main():
     #step 2: atc drugs -> chembl
     #step 3: for drug in atc_chembl, if it exists in kiba chembl, grab those smiles
     try: 
-        # map chembl to smiles
-        seq_to_chembl_file_name = "../data/kiba/seq_to_id.cpkl" 
+        # map all kiba/covid chembl to smiles
         chembl_to_smiles = {}
-        with open(seq_to_chembl_file_name, 'rb') as seq_handle:
-            (mseq_to_id, _) = cPickle.load(seq_handle)
+        kiba_seq_to_chembl= "../data/kiba/seq_to_id.cpkl" 
+        covid_seq_to_chembl = "../data/covid/seq_to_id.cpkl"
 
-        for seq_idx, (smiles, chembl) in mseq_to_id.items():
+        # attach kiba smiles map
+        with open(kiba_seq_to_chembl, 'rb') as seq_handle:
+            (kiba_mseq_to_id, _) = cPickle.load(seq_handle)
+
+        for seq_idx, (smiles, chembl) in kiba_mseq_to_id.items():
             chembl_to_smiles[chembl] = seq_idx
+
+        print("kiba smiles:", len(chembl_to_smiles))
+
+        # attach covid smiles map
+        with open(covid_seq_to_chembl, 'rb') as seq_handle:
+            (covid_mseq_to_id, _) = cPickle.load(seq_handle)
+
+        for seq_idx, (smiles, chembl) in covid_mseq_to_id.items():
+            chembl_to_smiles[chembl] = seq_idx        
+
+        print("covid smiles:", len(chembl_to_smiles))
 
         # load atc and map to chembl
         atc_file_name = 'data/ATC_embedding.pkl'
@@ -30,13 +44,17 @@ def main():
            for idx, row in enumerate(reader):
                atc_chembl[row['CHEMBL']] = idx
 
-        # map atc chembl to kiba smiles if exists in kiba otherwise na
+        # import pdb
+        # pdb.set_trace()
+        # map atc chembl to kiba/covid smiles if exists in original data otherwise na
         atc_chembl_to_smiles = {}
         for c, s in chembl_to_smiles.items(): 
             if c in atc_chembl.keys():
                 atc_chembl_to_smiles[c] = (s, atc_chembl[c])
-        
-        # 5 drugs that overlap between ATC chembl and chembl in kiba
+
+        # import pdb
+        # pdb.set_trace()
+        # 5 drugs that overlap between ATC chembl and chembl in kiba, # 4 drugs overlap
         atc_chembal_overlap_list = list(atc_chembl_to_smiles.keys())
         atc_idx_overlap = np.array([val[1] for _, val in atc_chembl_to_smiles.items()])
 
@@ -61,29 +79,27 @@ def main():
 
     except Exception as e: 
         print(e)
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
 
 
 
 if __name__ == "__main__": 
     main()
     
-    import tensorflow as tf
+    # import tensorflow as tf
 
-    keys = []
-    values = []
-    with open('./data/atc_overlap_vocab.txt', newline='\n') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            # pdb.set_trace()
-            keys.append(row['EMBED_ID'])
-            values.append(row['ROW_IDX'])
+    # keys = []
+    # values = []
+    # with open('./data/atc_overlap_vocab.txt', newline='\n') as csvfile:
+    #     reader = csv.DictReader(csvfile)
+    #     for row in reader:
+    #         # pdb.set_trace()
+    #         keys.append(row['EMBED_ID'])
+    #         values.append(row['ROW_IDX'])
     
-    keys = tf.constant(keys)
-    values = tf.constant(values)
-
-    import pdb
-    pdb.set_trace()
+    # keys = tf.constant(keys)
+    # values = tf.constant(values)
 
     # with open('./data/atc_overlap_vocab.txt', 'r') as handler:
     #     import pdb
