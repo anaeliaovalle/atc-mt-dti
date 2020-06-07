@@ -14,7 +14,7 @@ tf.logging.set_verbosity(tf.logging.INFO)
 
 parser = argparse.ArgumentParser(description='Training parser')
 parser.add_argument('--gpu_num', default="0", choices=["0", "1", "2", "3", "4", "5", "6", "7"], type=str)
-parser.add_argument('--model_version', default="1", choices=["1", "2", "3", "4", "11", "14"], type=str)
+parser.add_argument('--model_version', default="11", choices=["1", "2", "3", "4", "11", "14"], type=str)
 parser.add_argument('--batch_size', default=512, choices=[256, 512], type=int)
 parser.add_argument('--fold', default=0, choices=[0,1,2,3,4], type=int)
 parser.add_argument('--dataset_name', type=str, default="kiba", choices=["davis", "kiba"],
@@ -31,8 +31,11 @@ parser.add_argument('--num_tpu_cores', type=int, default=8,
                     help='num_tpu_cores')
 parser.add_argument('--bert_config_file', type=str, default="../../config/m_bert_base_config.json",
                     help='bert_config_file')
-parser.add_argument('--init_checkpoint', type=str, default="../../data/pretrain/mbert_6500k/model.ckpt-6500000",
+parser.add_argument('--init_checkpoint', type=str, default="../../data/elia/v11-no-atc/model.ckpt-750",
                     help='init_checkpoint')
+parser.add_argument('--model-dir', type=str, default="../../data/elia/v11-no-atc",
+                    help='model checkpoint dir')                    
+
 parser.add_argument('--k1', type=int, default=12, help='kernel_size1')
 parser.add_argument('--k2', type=int, default=12, help='kernel_size2')
 parser.add_argument('--k3', type=int, default=12, help='kernel_size3')
@@ -46,9 +49,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_num
 i_trn = "../../data/%s/tfrecord/fold%d.trn.tfrecord" % (args.dataset_name, args.fold)
 i_dev= "../../data/%s/tfrecord/fold%d.dev.tfrecord" % (args.dataset_name, args.fold)
 i_tst= "../../data/%s/tfrecord/fold%d.tst.tfrecord" % (args.dataset_name, args.fold)
-output_dir = "../../data/%s/mbert_cnn_v%s_lr%.4f_k%d_k%d_k%d_fold%d/" % (args.dataset_name, args.model_version, args.learning_rate, args.k1, args.k2, args.k3, args.fold)
-best_model_dir_mse = "../../data/%s/mbert_cnn_v%s_lr%.4f_k%d_k%d_k%d_fold%d/best_mse" % (args.dataset_name, args.model_version, args.learning_rate, args.k1, args.k2, args.k3, args.fold)
-best_model_dir_ci = "../../data/%s/mbert_cnn_v%s_lr%.4f_k%d_k%d_k%d_fold%d/best_ci" % (args.dataset_name, args.model_version, args.learning_rate, args.k1, args.k2, args.k3, args.fold)
+# output_dir = "../../data/%s/mbert_cnn_v%s_lr%.4f_k%d_k%d_k%d_fold%d/" % (args.dataset_name, args.model_version, args.learning_rate, args.k1, args.k2, args.k3, args.fold)
+output_dir = '../../data/elia/output'
 
 if args.dataset_name=="kiba":
     num_trn_example = 78835
@@ -90,7 +92,6 @@ else:
 def main(argv):
     del argv
 
-
     try: 
         # TODO: refactoring is required: seq_to_id.cpkl should be in one of the preprocessings
         lookup_file_name = "%s/%s/seq_to_id.cpkl" % (args.base_path, args.dataset_name)
@@ -100,9 +101,9 @@ def main(argv):
         # os.environ['CUDA_VISIBLE_DEVICES'] = ''
         # init model class
         model = MbertPcnnModel(batch_size, dev_batch_size, 100, 1000,
-                            args.bert_config_file, args.init_checkpoint,
+                            args.bert_config_file,
                             args.learning_rate, num_train_steps, num_warmup_steps, args.use_tpu,
-                            args.k1, args.k2, args.k3)
+                            args.k1, args.k2, args.k3, args, use_atc=False, init_checkpoint=args.init_checkpoint)                            
 
         tpu_cluster_resolver = None
         if args.use_tpu and args.tpu_name:
@@ -118,18 +119,22 @@ def main(argv):
             session_config=config,
             cluster=tpu_cluster_resolver,
             master=None,
-            model_dir=output_dir,
+            model_dir=args.model_dir,
             save_checkpoints_steps=save_checkpoints_steps,
             tpu_config=tf.contrib.tpu.TPUConfig(
                 iterations_per_loop=save_checkpoints_steps,
                 num_shards=args.num_tpu_cores,
                 per_host_input_for_training=is_per_host))
 
-        model_fn = eval("model.model_fn_v%s" % args.model_version)
+
+        # import pdb
+        # pdb.set_trace()
+
+        # model_fn = eval("model.model_fn_v)
         # create classifier
         estimator = tf.contrib.tpu.TPUEstimator(
             use_tpu=False,
-            model_fn=model_fn,
+            model_fn=model.model_fn_v11,
             config=run_config,
             train_batch_size=batch_size,
             eval_batch_size=dev_batch_size)
@@ -141,13 +146,13 @@ def main(argv):
         # 19708/4 = 4927
         print("====================================== tst ==============================")
         results = estimator.predict(input_fn=input_fn_tst)
-        filename = "%s/%s/mtdti.v%s.predictions.fold%d.txt" % (args.base_path, args.dataset_name, args.model_version, args.fold)
+        filename = "../../data/elia/baseline-kiba-predictions.txt"
         print(filename)
         with open(filename, 'wt') as handle:
             # handle.write("chemid,pid,y_hat,y,smiles,fasta\n")
             handle.write("chemid,pid,y_hat,y\n")
             for idx, result in enumerate(results):
-                pdb.set_trace()
+                # pdb.set_trace()
                 xd_str = ','.join(map(str, result['xd'])) #[1,2,3,4,4,4] --> 1,2,3,4,4,4 --> f('1,2,3,4,4,4'): (smiles, chembl192381)
                 xt_str = ','.join(map(str, result['xt']))
 
