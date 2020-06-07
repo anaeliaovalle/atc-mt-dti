@@ -265,9 +265,25 @@ def get_split(base_path, problem_type, max_seq_len, max_smi_len):
 
     smiles = "".join(dataset.array_to_smiles(XD[0]))
     fasta = "".join(dataset.array_to_fasta(XT[0]))
+
     # cPickle.dump((XD, XT, Y, trn_sets, dev_sets, tst_set, row_idx, col_idx), open('%s/kiba/kiba.cpkl' % base_path, 'wb'))
     cPickle.dump((XD, XT, Y, trn_sets, dev_sets, tst_set, row_idx, col_idx, chembl_id_list, protein_id_list),
                  open('%s/kiba/kiba_b.cpkl' % base_path, 'wb'))
+
+    # TODO seq_to_chemid mapping
+
+    # looks something like this:
+    # lookup_file_name = "%s/%s/seq_to_id.cpkl" % (args.base_path, args.dataset_name)
+    #     with open(lookup_file_name, 'rb') as handle:
+    #         (mseq_to_id, pseq_to_id) = cPickle.load(handle)
+    # 
+    # written kinda like this: 
+    # res_chembl = dict(zip(XD, chembld_id_list))
+    # res_fasta = dict(zip(XT, chembld_id_list))
+    # res = (res_chembl, res_fasta)
+    # cpickle.dump(res) seq_to_id.cpkl som
+    #
+
 
 
 if __name__=="__main__":
