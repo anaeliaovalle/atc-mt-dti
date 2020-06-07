@@ -439,11 +439,10 @@ class DeepDTAModel(object):
 class MbertPcnnModel(object):
     def __init__(self, batch_size, dev_batch_size, max_molecule_length, max_protein_length,
                  bert_config_file, learning_rate, num_train_steps, num_warmup_steps,
-                 use_tpu, kernel_size1, kernel_size2, kernel_size3, args, use_atc, init_checkpoint):
+                 use_tpu, kernel_size1, kernel_size2, kernel_size3, args, use_atc, pretrain_checkpoint, restore_checkpoint, use_pretrain_init=True):
         self.batch_size = batch_size
         self.dev_batch_size = dev_batch_size
         self.bert_config_file = bert_config_file
-        self.init_checkpoint = init_checkpoint
         self.learning_rate = learning_rate
         self.num_train_steps = num_train_steps
         self.num_warmup_steps = num_warmup_steps
@@ -455,8 +454,10 @@ class MbertPcnnModel(object):
         self.kernel_size3 = kernel_size3
         self.base_path = args.base_path
         self.dataset_name = args.dataset_name
-        self.use_atc = use_atc #only available for model fn v11
-
+        self.use_atc = use_atc #only available for model fn v1
+        self.pretrain_checkpoint = pretrain_checkpoint
+        self.restore_checkpoint = restore_checkpoint
+        self.use_pretrain_init = use_pretrain_init
 
     def input_fn_builder(self, input_files,
                          is_training,
@@ -664,7 +665,7 @@ class MbertPcnnModel(object):
         sess = tf.Session()
         graph = tf.get_default_graph()
 
-        save_file = self.init_checkpoint
+        save_file = self.pretrain_checkpoint
         reader = tf.train.NewCheckpointReader(save_file)
         saved_shapes = reader.get_variable_to_shape_map()
 
@@ -745,6 +746,7 @@ class MbertPcnnModel(object):
         # idx = [int(chem2idx.get(c, -1)) for c in chembl]
         
         if self.use_atc: 
+            print("Using ATC embedding")
             atc_embedding = ATCEmbedding(
                 embed_pth='../../atc/data/atc_overlap_embedding.npy',
                 vocab_pth='../../atc/data/atc_overlap_vocab.txt',            
@@ -762,41 +764,37 @@ class MbertPcnnModel(object):
         predictions = tf.layers.dense(z, 1, kernel_initializer='normal')
 
         scaffold_fn = None
-        if mode == tf.estimator.ModeKeys.TRAIN:
-            print("**** WE'RE DOING TRAIN, LOADING BERT WEIGHTS***!")
-            loss = tf.losses.mean_squared_error(y, predictions)
-            self.optimistic_restore()            
-
-        if mode == tf.estimator.ModeKeys.EVAL:
-            print("**** WE'RE DOING EVAL, LOADING LAST ELIA WEIGHTS***!")
-            self.y = y
-            self.predictions = predictions            
+        if mode == tf.estimator.ModeKeys.TRAIN or mode == tf.estimator.ModeKeys.EVAL:
             loss = tf.losses.mean_squared_error(y, predictions)
 
-            tvars = tf.trainable_variables()
+            if self.use_pretrain_init:
+                print("**** WE'RE DOING TRAIN, LOADING BERT WEIGHTS***!")
+                self.optimistic_restore() 
+                self.use_pretrain_init = False
+            else:
+                print("**** WE'RE LOADING LAST CHECKPOINT WEIGHTS***!")                
+                tvars = tf.trainable_variables()
 
-            initialized_variable_names = {}
-
-            if self.init_checkpoint:
+                initialized_variable_names = {}                
                 (assignment_map, initialized_variable_names
-                 ) = get_assignment_map_from_checkpoint(tvars, self.init_checkpoint)
+                 ) = get_assignment_map_from_checkpoint(tvars, self.restore_checkpoint)
                 if self.use_tpu:
 
                     def tpu_scaffold():
-                        tf.train.init_from_checkpoint(self.init_checkpoint, assignment_map)
+                        tf.train.init_from_checkpoint(self.restore_checkpoint, assignment_map)
                         return tf.train.Scaffold()
 
                     scaffold_fn = tpu_scaffold
                 else:
-                    tf.train.init_from_checkpoint(self.init_checkpoint, assignment_map)
+                    tf.train.init_from_checkpoint(self.restore_checkpoint, assignment_map)
 
-            tf.logging.info("**** Trainable Variables ****")
-            for var in tvars:
-                init_string = ""
-                if var.name in initialized_variable_names:
-                    init_string = ", *INIT_FROM_CKPT*"
-                tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
-                                init_string)            
+            # tf.logging.info("**** Trainable Variables ****")
+            # for var in tvars:
+            #     init_string = ""
+            #     if var.name in initialized_variable_names:
+            #         init_string = ", *INIT_FROM_CKPT*"
+            #     tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
+            #                     init_string)            
 
             def metric_fn(loss, y_true, y_pred):
                 mean_loss = tf.metrics.mean(values=loss)

@@ -33,8 +33,7 @@ parser.add_argument('--bert_config_file', type=str, default="../../config/m_bert
                     help='bert_config_file')
 parser.add_argument('--init_checkpoint', type=str, default="../../data/elia/v11-no-atc/model.ckpt-750",
                     help='init_checkpoint')
-parser.add_argument('--model-dir', type=str, default="../../data/elia/v11-no-atc",
-                    help='model checkpoint dir')                    
+parser.add_argument('--model-dir', type=str,help='model checkpoint dir')                    
 
 parser.add_argument('--k1', type=int, default=12, help='kernel_size1')
 parser.add_argument('--k2', type=int, default=12, help='kernel_size2')
@@ -42,15 +41,26 @@ parser.add_argument('--k3', type=int, default=12, help='kernel_size3')
 
 parser.add_argument('--base_path', default="../../data", type=str)
 
+# parser.add_argument('--use-atc', action='store_true', default=False)
+output_dir = './output'
+parser.add_argument('--covid', action='store_true', default=False)
+parser.add_argument('--use-atc', action='store_true', default=False)
+
 
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_num
 
+print("dfljsfsd")
+
 i_trn = "../../data/%s/tfrecord/fold%d.trn.tfrecord" % (args.dataset_name, args.fold)
 i_dev= "../../data/%s/tfrecord/fold%d.dev.tfrecord" % (args.dataset_name, args.fold)
-i_tst= "../../data/%s/tfrecord/fold%d.tst.tfrecord" % (args.dataset_name, args.fold)
+
+if args.covid: 
+    i_tst = '../../data/covid/tfrecord/fold0.tst.tfrecord'
+else:
+    i_tst= "../../data/%s/tfrecord/fold%d.tst.tfrecord" % (args.dataset_name, args.fold)
 # output_dir = "../../data/%s/mbert_cnn_v%s_lr%.4f_k%d_k%d_k%d_fold%d/" % (args.dataset_name, args.model_version, args.learning_rate, args.k1, args.k2, args.k3, args.fold)
-output_dir = '../../data/elia/output'
+
 
 if args.dataset_name=="kiba":
     num_trn_example = 78835
@@ -94,7 +104,10 @@ def main(argv):
 
     try: 
         # TODO: refactoring is required: seq_to_id.cpkl should be in one of the preprocessings
-        lookup_file_name = "%s/%s/seq_to_id.cpkl" % (args.base_path, args.dataset_name)
+        if args.covid: 
+            lookup_file_name = "../../data/covid/seq_to_id.cpkl"
+        else:
+            lookup_file_name = "%s/%s/seq_to_id.cpkl" % (args.base_path, args.dataset_name)
         with open(lookup_file_name, 'rb') as handle:
             (mseq_to_id, pseq_to_id) = cPickle.load(handle)
 
@@ -103,7 +116,11 @@ def main(argv):
         model = MbertPcnnModel(batch_size, dev_batch_size, 100, 1000,
                             args.bert_config_file,
                             args.learning_rate, num_train_steps, num_warmup_steps, args.use_tpu,
-                            args.k1, args.k2, args.k3, args, use_atc=False, init_checkpoint=args.init_checkpoint)                            
+                            args.k1, args.k2, args.k3, args,
+                            use_atc=args.use_atc, 
+                            pretrain_checkpoint=None, 
+                            restore_checkpoint=args.model_dir, 
+                            use_pretrain_init=False)
 
         tpu_cluster_resolver = None
         if args.use_tpu and args.tpu_name:
