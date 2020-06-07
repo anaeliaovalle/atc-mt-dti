@@ -281,7 +281,7 @@ def main(argv):
     #TODO atc-mt-dti testing
     current_step = 1
     num_train_steps = 750
-    test_model_dir = None
+    test_model_dir = './elia/v11-no-atc'
     restore_dir = '../../data/kiba/mbert_cnn_v11_lr0.0001_k12_k12_k12_fold0/model.ckpt-900' #output_dir
 
     try: 
@@ -289,7 +289,7 @@ def main(argv):
         model = MbertPcnnModel(batch_size, dev_batch_size, 100, 1000,
                             args.bert_config_file,
                             args.learning_rate, num_train_steps, num_warmup_steps, args.use_tpu,
-                            args.k1, args.k2, args.k3, args, init_checkpoint=restore_dir) # init_checkpoint=args.data_path+args.init_checkpoint
+                            args.k1, args.k2, args.k3, args, use_atc=False, init_checkpoint=restore_dir) # init_checkpoint=args.data_path+args.init_checkpoint
 
         tpu_cluster_resolver = None
         if args.use_tpu and args.tpu_name:
