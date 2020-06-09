@@ -2,6 +2,34 @@
 https://www.who.int/medicines/regulation/medicines-safety/toolkit_atc/en/
 
 
+### CS247 Documentation for running the ATC embedding
+
+1) Download [data.tar.gz](https://drive.google.com/file/d/16dTynXCKPPdvQq4BiXBdQwNuxilJbozR/view?usp=sharing) to get the Kiba tfrecords
+2) Run the model finetuning on the ATC Embedding
+
+```
+cd src/finetune
+export PYTHONPATH='../../'
+python finetune_demo.py  --use-atc --save-model-dir ./yes-atc 
+```
+2) Run the predictions
+
+For running predictions on ATC embedding with Kiba data:
+```
+cd src/predict
+export PYTHONPATH='../../'
+python predict_demo.py  --use-atc --load-model-dir ../finetune/yes-atc 
+```
+
+For running predictions on ATC embedding with COVID19 data:
+```
+cd src/predict
+export PYTHONPATH='../../'
+python predict_demo.py  --covid --use-atc --load-model-dir ../finetune/yes-atc 
+```
+
+
+
 ### Forked Repo Documentation
 -----------
 # MT-DTI
