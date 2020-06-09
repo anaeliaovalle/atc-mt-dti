@@ -115,16 +115,19 @@ def main(argv):
 
     try: 
         # TODO: refactoring is required: seq_to_id.cpkl should be in one of the preprocessings
-        refer_src = "%s/%s/seq_to_id.cpkl" % (args.base_path, args.dataset_name)
+        # refer_src = "%s/%s/seq_to_id.cpkl" % (args.base_path, args.dataset_name)
         if args.covid: 
             print("Using COVID cpkl file")
-            lookup_file_name = "../../data/covid/seq_to_id.cpkl"
+            lookup_file_name = "../../data/covid/covid_seq_to_id.cpkl"
             
         with open(lookup_file_name, 'rb') as handle:
             (mseq_to_id, pseq_to_id) = cPickle.load(handle)
 
-        with open(refer_src, 'rb') as handle:
-            (refer_table, _) = cPickle.load(handle)            
+        # import pdb
+        # pdb.set_trace()
+
+        # with open(refer_src, 'rb') as handle:
+        #     (refer_table, _) = cPickle.load(handle)            
 
         # os.environ['CUDA_VISIBLE_DEVICES'] = ''
         # init model class
@@ -177,29 +180,13 @@ def main(argv):
         # 19708/4 = 4927
         print("====================================== tst ==============================")
         results = estimator.predict(input_fn=input_fn_tst)
+
         with open(filename, 'wt') as handle:
             # handle.write("chemid,pid,y_hat,y,smiles,fasta\n")
             handle.write("chemid,pid,y_hat,y\n")
             for idx, result in enumerate(results):
-
-#                 (Pdb) xd_str
-# '1,2,30,30,41,30,5,14,41,6,12,30,14,30,12,7,30,17,35,8,5,30,7,30,17,17,35,8,19,30,30,40,30,19,14,41,6,40,30,5,14,41,6,7,30,17,35,8,5,30,53,19,53,53,53,5,33,6,53,53,19,6,40,30,5,14,41,6,7,30,17,17,35,8,5,40,30,5,14,41,6,53,19,53,53,5,30,6,62,63,19,6,30,5,30,6,30,3,0,0'
-# (Pdb) len(xd_str)
-
-# 266
-                len([x[:4] for x in mseq_to_id.keys() if x[:4][2]==','])
-                tmp = '1,2,30,30,41' #no match on 11 characters
-                search = [x for x in mseq_to_id.keys() if x.startswith(tmp)]
                 xd_str = ','.join(map(str, result['xd'])) #[1,2,3,4,4,4] --> 1,2,3,4,4,4 --> f('1,2,3,4,4,4'): (smiles, chembl192381)
                 xt_str = ','.join(map(str, result['xt']))
-
-                import pdb
-                pdb.set_trace()                
-                
-                refer_lens = [len(x) for x in refer_table.keys()]
-                compare_lens = [len(x) for x in mseq_to_id.keys()]
-                len_drug = len(xd_str)
-                print("drug len: %d" % len_drug)
 
                 if xd_str in mseq_to_id:
                     smiles = mseq_to_id[xd_str][0]
@@ -223,6 +210,8 @@ def main(argv):
                 if idx % 1000 == 0:
                     # pdb.set_trace()
                     print(idx)
+        # import pdb
+        # pdb.set_trace()                        
     except Exception as e: 
         print(e)
         pdb.set_trace()

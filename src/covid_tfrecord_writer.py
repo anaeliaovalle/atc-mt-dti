@@ -54,12 +54,12 @@ def read_data(fold):
     rng = random.Random(FLAGS.random_seed)
     molecule_tokenizer = DTITokenizer("../config/vocab_smiles.txt" )
     max_seq_length = FLAGS.max_molecule_seq_length
-    molecule_list, molecule_mask, cid_list = read_inputs(molecule_input_file, molecule_tokenizer, max_seq_length, rng)
+    molecule_list, molecule_mask, cid_list, mseq_to_id = read_inputs(molecule_input_file, molecule_tokenizer, max_seq_length, rng)
     tf.logging.info("reading molecule done")
 
     protein_tokenizer = DTITokenizer("../config/vocab_fasta.txt" )
     max_seq_length = FLAGS.max_protein_seq_length
-    protein_list, protein_mask, pid_list = read_inputs(protein_input_file, protein_tokenizer, max_seq_length, rng)
+    protein_list, protein_mask, pid_list, pseq_to_id = read_inputs(protein_input_file, protein_tokenizer, max_seq_length, rng)
     tf.logging.info("reading protein done")
 
     (XD, XT, Y, trn_sets, dev_sets, tst_set, row_idx, col_idx, chembl_id_list, protein_id_list) = \
@@ -67,6 +67,11 @@ def read_data(fold):
 
     dataset = (molecule_list, molecule_mask, protein_list, protein_mask, Y, trn_sets, dev_sets, tst_set, row_idx, col_idx)
     trndevtst = get_trn_dev_tst(dataset, fold)
+
+            
+    print("writing covid seq_to_id !!")
+    res = (mseq_to_id, pseq_to_id)
+    cPickle.dump(res, open('../data/covid/covid_seq_to_id.cpkl', 'wb'))
 
     return trndevtst, cid_list, pid_list
 
@@ -103,8 +108,7 @@ def read_inputs(input_file, tokenizer, max_seq_length, rng):
         tids_srt = ','.join(map(str, tids))
         seq_to_id[tids_srt] = (seq, k)
         tf.logging.info("Processing...[%d/%d]" % (idx, len(seq_dic.keys())))
-
-    return np.array(seq_list), np.array(mask_list), id_list
+    return np.array(seq_list), np.array(mask_list), id_list, seq_to_id
 
 
 def create_int_feature(values):
