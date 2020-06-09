@@ -35,7 +35,7 @@ parser.add_argument('--num_tpu_cores', type=int, default=8,
                     help='num_tpu_cores')
 parser.add_argument('--bert_config_file', type=str, default="../../config/m_bert_base_config.json",
                     help='bert_config_file')
-parser.add_argument('--init_checkpoint', type=str, default="/pretrain/mbert_6500k/model.ckpt-6500000",
+parser.add_argument('--init_checkpoint', type=str, default="../../data/pretrain/mbert_6500k/model.ckpt-6500000",
                     help='init_checkpoint')
 parser.add_argument('--base_path', default="../../data", type=str)
 parser.add_argument('--k1', type=int, default=12, help='kernel_size1')
@@ -43,8 +43,7 @@ parser.add_argument('--k2', type=int, default=12, help='kernel_size2')
 parser.add_argument('--k3', type=int, default=12, help='kernel_size3')
 
 parser.add_argument('--use-atc', action='store_true', default=False)
-parser.add_argument('--model-dir', required=True, help="dir where to save model")
-
+parser.add_argument('--save-model-dir', required=True, help="dir where to save model") #TODO remove
 
 
 args = parser.parse_args()
@@ -53,7 +52,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_num
 i_trn = "%s/%s/tfrecord/fold%d.trn.tfrecord" % (args.data_path, args.dataset_name, args.fold)
 i_dev= "%s/%s/tfrecord/fold%d.dev.tfrecord" % (args.data_path, args.dataset_name, args.fold)
 i_tst= "%s/%s/tfrecord/fold%d.tst.tfrecord" % (args.data_path, args.dataset_name, args.fold)
-# output_dir = "%s/%s/mbert_cnn_v%s_lr%.4f_k%d_k%d_k%d_fold%d/" % (args.data_path, args.dataset_name, args.model_version, args.learning_rate, args.k1, args.k2, args.k3, args.fold)
+output_dir = "%s/%s/elia_mbert_cnn_v%s_lr%.4f_k%d_k%d_k%d_fold%d/" % (args.data_path, args.dataset_name, args.model_version, args.learning_rate, args.k1, args.k2, args.k3, args.fold)
 best_model_dir_mse = "%s/%s/mbert_cnn_v%s_lr%.4f_k%d_k%d_k%d_fold%d/best_mse" % (args.data_path, args.dataset_name, args.model_version, args.learning_rate, args.k1, args.k2, args.k3, args.fold)
 best_model_dir_ci = "%s/%s/mbert_cnn_v%s_lr%.4f_k%d_k%d_k%d_fold%d/best_ci" % (args.data_path, args.dataset_name, args.model_version, args.learning_rate, args.k1, args.k2, args.k3, args.fold)
 
@@ -285,10 +284,9 @@ def main(argv):
     #TODO atc-mt-dti testing
     current_step = 1
     num_train_steps = 750
-    model_dir = os.path.join(os.getcwd(), args.model_dir)
+    save_model_dir = os.path.join(os.getcwd(), args.save_model_dir)
 
-    assert not os.path.exists(model_dir), "path already exists: %s" % model_dir
-    test_model_dir = args.model_dir #'./elia/v11-no-atc'
+    assert not os.path.exists(save_model_dir), "path already exists: %s" % save_model_dir
     pretrain_dir = '../../data/kiba/mbert_cnn_v11_lr0.0001_k12_k12_k12_fold0/model.ckpt-900' #output_dir
 
     try: 
@@ -299,9 +297,9 @@ def main(argv):
                             args.k1, args.k2, args.k3, args, 
                             use_atc=args.use_atc, 
                             pretrain_checkpoint=pretrain_dir, 
-                            restore_checkpoint=args.model_dir, 
-                            use_pretrain_init=True) # init_checkpoint=args.data_path+args.init_checkpoint
-
+                            restore_checkpoint=save_model_dir, 
+                            use_pretrain_init=True) 
+                            
         tpu_cluster_resolver = None
         if args.use_tpu and args.tpu_name:
             tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(
@@ -317,7 +315,7 @@ def main(argv):
             session_config=config,
             cluster=tpu_cluster_resolver,
             master=None,
-            model_dir=test_model_dir, #TODO model_dir
+            model_dir=save_model_dir, #TODO model_dir
             save_checkpoints_steps=save_checkpoints_steps,
             tpu_config=tf.contrib.tpu.TPUConfig(
                 iterations_per_loop=save_checkpoints_steps,

@@ -33,7 +33,7 @@ parser.add_argument('--bert_config_file', type=str, default="../../config/m_bert
                     help='bert_config_file')
 parser.add_argument('--init_checkpoint', type=str, default="../../data/elia/v11-no-atc/model.ckpt-750",
                     help='init_checkpoint')
-parser.add_argument('--model-dir', type=str,help='model checkpoint dir')                    
+parser.add_argument('--load-model-dir', type=str,help='model checkpoint dir')                    
 
 parser.add_argument('--k1', type=int, default=12, help='kernel_size1')
 parser.add_argument('--k2', type=int, default=12, help='kernel_size2')
@@ -42,7 +42,7 @@ parser.add_argument('--k3', type=int, default=12, help='kernel_size3')
 parser.add_argument('--base_path', default="../../data", type=str)
 
 # parser.add_argument('--use-atc', action='store_true', default=False)
-output_dir = './output'
+# output_dir = './output'
 parser.add_argument('--covid', action='store_true', default=False)
 parser.add_argument('--use-atc', action='store_true', default=False)
 
@@ -50,15 +50,26 @@ parser.add_argument('--use-atc', action='store_true', default=False)
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_num
 
-print("dfljsfsd")
-
 i_trn = "../../data/%s/tfrecord/fold%d.trn.tfrecord" % (args.dataset_name, args.fold)
 i_dev= "../../data/%s/tfrecord/fold%d.dev.tfrecord" % (args.dataset_name, args.fold)
+i_tst= "../../data/%s/tfrecord/fold%d.tst.tfrecord" % (args.dataset_name, args.fold)
 
 if args.covid: 
     i_tst = '../../data/covid/tfrecord/fold0.tst.tfrecord'
+
+
+if args.use_atc and args.covid: 
+    filename = "atc-covid-predictions.txt"
+elif args.use_atc and (not args.covid): 
+    filename = "./atc-predictions.txt"
+elif (not args.use_atc) and (not args.covid): 
+    filename = "./baseline-kiba-predictions.txt"
 else:
-    i_tst= "../../data/%s/tfrecord/fold%d.tst.tfrecord" % (args.dataset_name, args.fold)
+    raise Exception("filename invalid for parameters")
+
+
+print("WILL WRITE TO: %s" % filename)
+
 # output_dir = "../../data/%s/mbert_cnn_v%s_lr%.4f_k%d_k%d_k%d_fold%d/" % (args.dataset_name, args.model_version, args.learning_rate, args.k1, args.k2, args.k3, args.fold)
 
 
@@ -104,12 +115,16 @@ def main(argv):
 
     try: 
         # TODO: refactoring is required: seq_to_id.cpkl should be in one of the preprocessings
+        refer_src = "%s/%s/seq_to_id.cpkl" % (args.base_path, args.dataset_name)
         if args.covid: 
+            print("Using COVID cpkl file")
             lookup_file_name = "../../data/covid/seq_to_id.cpkl"
-        else:
-            lookup_file_name = "%s/%s/seq_to_id.cpkl" % (args.base_path, args.dataset_name)
+            
         with open(lookup_file_name, 'rb') as handle:
             (mseq_to_id, pseq_to_id) = cPickle.load(handle)
+
+        with open(refer_src, 'rb') as handle:
+            (refer_table, _) = cPickle.load(handle)            
 
         # os.environ['CUDA_VISIBLE_DEVICES'] = ''
         # init model class
@@ -119,7 +134,7 @@ def main(argv):
                             args.k1, args.k2, args.k3, args,
                             use_atc=args.use_atc, 
                             pretrain_checkpoint=None, 
-                            restore_checkpoint=args.model_dir, 
+                            restore_checkpoint=args.load_model_dir, 
                             use_pretrain_init=False)
 
         tpu_cluster_resolver = None
@@ -136,13 +151,12 @@ def main(argv):
             session_config=config,
             cluster=tpu_cluster_resolver,
             master=None,
-            model_dir=args.model_dir,
+            model_dir=args.load_model_dir,
             save_checkpoints_steps=save_checkpoints_steps,
             tpu_config=tf.contrib.tpu.TPUConfig(
                 iterations_per_loop=save_checkpoints_steps,
                 num_shards=args.num_tpu_cores,
                 per_host_input_for_training=is_per_host))
-
 
         # import pdb
         # pdb.set_trace()
@@ -163,15 +177,29 @@ def main(argv):
         # 19708/4 = 4927
         print("====================================== tst ==============================")
         results = estimator.predict(input_fn=input_fn_tst)
-        filename = "../../data/elia/baseline-kiba-predictions.txt"
-        print(filename)
         with open(filename, 'wt') as handle:
             # handle.write("chemid,pid,y_hat,y,smiles,fasta\n")
             handle.write("chemid,pid,y_hat,y\n")
             for idx, result in enumerate(results):
-                # pdb.set_trace()
+
+#                 (Pdb) xd_str
+# '1,2,30,30,41,30,5,14,41,6,12,30,14,30,12,7,30,17,35,8,5,30,7,30,17,17,35,8,19,30,30,40,30,19,14,41,6,40,30,5,14,41,6,7,30,17,35,8,5,30,53,19,53,53,53,5,33,6,53,53,19,6,40,30,5,14,41,6,7,30,17,17,35,8,5,40,30,5,14,41,6,53,19,53,53,5,30,6,62,63,19,6,30,5,30,6,30,3,0,0'
+# (Pdb) len(xd_str)
+
+# 266
+                len([x[:4] for x in mseq_to_id.keys() if x[:4][2]==','])
+                tmp = '1,2,30,30,41' #no match on 11 characters
+                search = [x for x in mseq_to_id.keys() if x.startswith(tmp)]
                 xd_str = ','.join(map(str, result['xd'])) #[1,2,3,4,4,4] --> 1,2,3,4,4,4 --> f('1,2,3,4,4,4'): (smiles, chembl192381)
                 xt_str = ','.join(map(str, result['xt']))
+
+                import pdb
+                pdb.set_trace()                
+                
+                refer_lens = [len(x) for x in refer_table.keys()]
+                compare_lens = [len(x) for x in mseq_to_id.keys()]
+                len_drug = len(xd_str)
+                print("drug len: %d" % len_drug)
 
                 if xd_str in mseq_to_id:
                     smiles = mseq_to_id[xd_str][0]
